@@ -1,0 +1,4 @@
+house_vae_logs/
+vae_logs
+datasets/
+**/*.pyc

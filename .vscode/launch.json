@@ -1,0 +1,68 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "pure_ae",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_vae.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--log_dir", "pure_ae",
+                "--model", "pure_ae",
+                "--dataset-dir", "datasets/dtse_test0_1",
+            ]
+        },
+        {
+            "name": "mse_vae",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_vae.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--log_dir", "mse_vae",
+                "--model", "mse_vae",
+                "--dataset-dir", "datasets/dtse_test0_1",
+            ]
+        },
+        {
+            "name": "gaussian_vae",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_vae.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--log_dir", "gaussian_vae",
+                "--model", "gaussian_vae",
+                "--dataset-dir", "datasets/dtse_test0_1",
+            ]
+        },
+        {
+            "name": "sigma_vae",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_vae.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--log_dir", "sigma_vae",
+                "--model", "sigma_vae",
+                "--dataset-dir", "datasets/dtse_test0_1",
+            ]
+        },
+        {
+            "name": "optimal_sigma_vae",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_vae.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--log_dir", "optimal_sigma_vae",
+                "--model", "optimal_sigma_vae",
+                "--dataset-dir", "datasets/dtse_test0_1",
+            ]
+        }
+    ]
+}

@@ -9,23 +9,20 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 from model import ConvVAE
+from data.loaders import RolloutObservationDataset
 
 """ This script is an example of Sigma VAE training in PyTorch. The code was adapted from:
 https://github.com/pytorch/examples/blob/master/vae/main.py """
 
 ## Arguments
 parser = argparse.ArgumentParser(description='VAE MNIST Example')
-parser.add_argument('--batch-size', type=int, default=128, metavar='N',
-                    help='input batch size for training (default: 128)')
-parser.add_argument('--epochs', type=int, default=10, metavar='N',
-                    help='number of epochs to train (default: 10)')
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='enables CUDA training')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                    help='how many batches to wait before logging training status')
-parser.add_argument('--model', type=str, default='mse', metavar='N',
-                    help='which model to use: mse_vae,  gaussian_vae, or sigma_vae or optimal_sigma_vae')
+parser.add_argument('--batch-size', type=int, default=128, metavar='N', help='input batch size for training (default: 128)')
+parser.add_argument('--epochs', type=int, default=20, metavar='N', help='number of epochs to train (default: 10)')
+parser.add_argument('--no-cuda', action='store_true', default=False, help='enables CUDA training')
+parser.add_argument('--log-interval', type=int, default=10, metavar='N', help='how many batches to wait before logging training status')
+parser.add_argument('--model', type=str, default='mse_vae', metavar='N', help='which model to use: mse_vae,  gaussian_vae, or sigma_vae or optimal_sigma_vae')
 parser.add_argument('--log_dir', type=str, default='test', metavar='N', required=True)
+parser.add_argument('--dataset-dir', type=str, default='../../data', help='../../data or datasets/dtse_test0_1')
 args = parser.parse_args()
 
 ## Cuda
@@ -33,9 +30,15 @@ args.cuda = not args.no_cuda and torch.cuda.is_available()
 device = torch.device("cuda" if args.cuda else "cpu")
 
 ## Dataset
-transform = transforms.Compose([transforms.Resize((28, 28)), transforms.ToTensor()])
-train_dataset = datasets.SVHN('../../data', split='train', download=True, transform=transform)
-test_dataset = datasets.SVHN('../../data', split='train', transform=transform)
+if args.dataset_dir == '../../data':
+    transform = transforms.Compose([transforms.Resize((28, 28)), transforms.ToTensor()])
+    train_dataset = datasets.SVHN('../../data', split='train', download=True, transform=transform)
+    test_dataset = datasets.SVHN('../../data', split='train', transform=transform)
+elif args.dataset_dir == 'datasets/dtse_test0_1':
+    transform = transforms.Compose([transforms.ToPILImage(), transforms.ToTensor()])
+    train_dataset = RolloutObservationDataset(args.dataset_dir, train=True, transform=transform)
+    test_dataset = RolloutObservationDataset(args.dataset_dir, train=False, transform=transform)
+
 kwargs = {'num_workers': 10, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
@@ -45,14 +48,16 @@ os.makedirs('vae_logs/{}'.format(args.log_dir), exist_ok=True)
 summary_writer = SummaryWriter(log_dir='vae_logs/' + args.log_dir, purge_step=0)
 
 ## Build Model
-model = ConvVAE(device, 3, args).to(device)
+img_channels = 1 if args.dataset_dir == 'datasets/dtse_test0_1' else 3
+model = ConvVAE(device, img_channels, args).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 
 def train(epoch):
     model.train()
     train_loss = 0
-    for batch_idx, (data, _) in enumerate(train_loader):
+    for batch_idx, (data) in enumerate(train_loader):
+        data = data if args.dataset_dir == 'datasets/dtse_test0_1' else data[0]
         data = data.to(device)
         optimizer.zero_grad()
         
@@ -87,7 +92,8 @@ def test(epoch):
     model.eval()
     test_loss = 0
     with torch.no_grad():
-        for i, (data, _) in enumerate(tqdm(test_loader)):
+        for i, (data) in enumerate(tqdm(test_loader)):
+            data = data if args.dataset_dir == 'datasets/dtse_test0_1' else data[0]
             data = data.to(device)
             recon_batch, mu, logvar = model(data)
             # Pass the second value from posthoc VAE
@@ -95,7 +101,8 @@ def test(epoch):
             test_loss += rec + kl
             if i == 0:
                 n = min(data.size(0), 8)
-                comparison = torch.cat([data[:n], recon_batch.view(args.batch_size, -1, 28, 28)[:n]])
+                image_shape = (4, 200) if args.dataset_dir == 'datasets/dtse_test0_1' else (28, 28)
+                comparison = torch.cat([data[:n], recon_batch.view(args.batch_size, -1, *image_shape)[:n]])
                 save_image(comparison.cpu(), 'vae_logs/{}/reconstruction_{}.png'.format(args.log_dir, str(epoch)), nrow=n)
                 
     test_loss /= len(test_loader.dataset)
@@ -109,8 +116,8 @@ if __name__ == "__main__":
         test(epoch)
         with torch.no_grad():
             sample = model.sample(64).cpu()
-            save_image(sample.view(64, -1, 28, 28),
-                       'vae_logs/{}/sample_{}.png'.format(args.log_dir, str(epoch)))
+            image_shape = (4, 200) if args.dataset_dir == 'datasets/dtse_test0_1' else (28, 28)
+            save_image(sample.view(64, -1, *image_shape), 'vae_logs/{}/sample_{}.png'.format(args.log_dir, str(epoch)))
         summary_writer.file_writer.flush()
         
     torch.save(model.state_dict(), 'vae_logs/{}/checkpoint_{}.pt'.format(args.log_dir, str(epoch)))

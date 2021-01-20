@@ -18,12 +18,15 @@ class Flatten(nn.Module):
 
 
 class UnFlatten(nn.Module):
-    def __init__(self, n_channels):
+    def __init__(self, n_channels, args):
         super(UnFlatten, self).__init__()
         self.n_channels = n_channels
+        self.args = args
     
     def forward(self, input):
         size = int((input.size(1) // self.n_channels) ** 0.5)
+        if self.args.dataset_dir == 'datasets/dtse_test0_1':
+            return input.view(input.size(0), self.n_channels, 1, 50)
         return input.view(input.size(0), self.n_channels, size, size)
 
 
@@ -42,7 +45,8 @@ class ConvVAE(nn.Module):
         self.encoder = self.get_encoder(self.img_channels, filters_m)
 
         # output size depends on input image size, compute the output size
-        demo_input = torch.ones([1, self.img_channels, img_size, img_size])
+        image_shape = (4, 200) if args.dataset_dir == 'datasets/dtse_test0_1' else (img_size, img_size)
+        demo_input = torch.ones([1, self.img_channels, *image_shape])
         h_dim = self.encoder(demo_input).shape[1]
         print('h_dim', h_dim)
         
@@ -52,7 +56,7 @@ class ConvVAE(nn.Module):
 
         # decoder
         self.fc2 = nn.Linear(self.z_dim, h_dim)
-        self.decoder = self.get_decoder(filters_m, self.img_channels)
+        self.decoder = self.get_decoder(filters_m, self.img_channels, args)
         
         self.log_sigma = 0
         if self.model == 'sigma_vae':
@@ -72,9 +76,10 @@ class ConvVAE(nn.Module):
         )
 
     @staticmethod
-    def get_decoder(filters_m, out_channels):
+    def get_decoder(filters_m, out_channels, args):
+        is_traffic = args.dataset_dir == 'datasets/dtse_test0_1'
         return nn.Sequential(
-            UnFlatten(4 * filters_m),
+            UnFlatten(4 * filters_m, args),
             nn.ConvTranspose2d(4 * filters_m, 2 * filters_m, (6, 6), stride=2, padding=2),
             nn.ReLU(),
             nn.ConvTranspose2d(2 * filters_m, filters_m, (6, 6), stride=2, padding=2),
